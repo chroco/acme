@@ -1,5 +1,8 @@
-#include <linux/init.h>
+
 #include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/types.h>
 #include <linux/kdev_t.h>
 #include <linux/fs.h>
@@ -8,6 +11,7 @@
 #include <linux/device.h>	
 #include <linux/errno.h>	
 #include <asm/uaccess.h>	
+//#include <linux/module.h>
 
 MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
@@ -25,12 +29,6 @@ int acme_open(struct inode *inode, struct file *filp){
 }
 
 ssize_t acme_read(struct file *filp,char __user *buff,size_t count,loff_t *offp){
-//	char data[sizeof(int)];
-//	memcpy(data,&acme_devp->syscall_val,sizeof(int));
-	
-//	struct acme_dev *acme_devp=filp->private_data;
-//	printk("data: %s\n",data);
-//	if(copy_to_user(buff,(void *)data,count))return -EFAULT;
 	if(copy_to_user(buff,&acme_devp->syscall_val,count))return -EFAULT;
 	return count;
 }
@@ -49,6 +47,8 @@ static struct file_operations acme_fops = {
 
 static dev_t acme_dev_number;		/* Allotted device number */
 struct class *acme_class;
+static int val=40;
+module_param(val,int,S_IRUGO);
 
 #define DEVCOUNT	1
 #define DEVNAME		"acme"
@@ -71,7 +71,7 @@ int __init acme_init(void){
 
 	cdev_init(&acme_devp->cdev,&acme_fops);
 //	devno=MKDEV(acme_dev_number,0);
-	acme_devp->syscall_val=40;
+	acme_devp->syscall_val=val;
 	acme_devp->cdev.owner = THIS_MODULE;
 	acme_devp->cdev.ops = &acme_fops; //???????
 	err=cdev_add(&acme_devp->cdev,acme_dev_number,1);
