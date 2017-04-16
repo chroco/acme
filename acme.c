@@ -47,8 +47,8 @@ static struct file_operations acme_fops = {
 
 static dev_t acme_dev_number;		/* Allotted device number */
 struct class *acme_class;
-static int val=40;
-module_param(val,int,S_IRUGO);
+static int syscall_val=40;
+module_param(syscall_val,int,S_IRUGO);
 
 #define DEVCOUNT	1
 #define DEVNAME		"acme"
@@ -70,8 +70,7 @@ int __init acme_init(void){
 	}
 
 	cdev_init(&acme_devp->cdev,&acme_fops);
-//	devno=MKDEV(acme_dev_number,0);
-	acme_devp->syscall_val=val;
+	acme_devp->syscall_val=syscall_val;
 	acme_devp->cdev.owner = THIS_MODULE;
 	acme_devp->cdev.ops = &acme_fops; //???????
 	err=cdev_add(&acme_devp->cdev,acme_dev_number,1);
