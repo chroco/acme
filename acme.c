@@ -1,3 +1,9 @@
+/*
+	Chad Coates
+	ECE372
+	Homework #2
+	April 16, 2017
+*/
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -11,10 +17,6 @@
 #include <linux/device.h>	
 #include <linux/errno.h>	
 #include <asm/uaccess.h>	
-
-MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0");
-MODULE_AUTHOR("Chad Coates");
 
 #define DEVCOUNT			1
 #define DEVNAME				"acme"
@@ -41,8 +43,6 @@ static int syscall_val=SYSCALL_VAL;
 module_param(syscall_val,int,S_IRUGO);
 
 int __init acme_init(void){
-	int err;
-	
 	acme_class = class_create(THIS_MODULE,DEVNAME);
 	
 	if(alloc_chrdev_region(&acme_dev_number,0,DEVCOUNT,DEVNAME) < 0) {
@@ -58,11 +58,12 @@ int __init acme_init(void){
 	
 	cdev_init(&acme_devp->cdev,&acme_fops);
 	acme_devp->syscall_val=syscall_val;
+	acme_devp->cdev.owner=THIS_MODULE;
 	
-	err=cdev_add(&acme_devp->cdev,acme_dev_number,1);
-	if(err){
-		printk(KERN_NOTICE "error %d adding acme device",err);
-		return err;
+	if(cdev_add(&acme_devp->cdev,acme_dev_number,DEVCOUNT)){
+		printk(KERN_NOTICE "cdev_add() failed");
+		unregister_chrdev_region(acme_dev_number,DEVCOUNT);
+		return -1;
 	}
 
 	device_create(acme_class,NULL,acme_dev_number,NULL,DEVNAME);
@@ -73,7 +74,7 @@ int __init acme_init(void){
 
 void __exit acme_cleanup(void){
 	cdev_del(&acme_devp->cdev);
-	unregister_chrdev_region(MAJOR(acme_dev_number),DEVCOUNT);
+	unregister_chrdev_region(acme_dev_number,DEVCOUNT);
 	kfree(acme_devp);
 	device_destroy(acme_class,acme_dev_number);
 	class_destroy(acme_class);
@@ -90,6 +91,9 @@ ssize_t acme_write(struct file *filp,const char __user *buff,size_t count,loff_t
 	return count;
 }
 
+MODULE_AUTHOR("Chad Coates");
+MODULE_LICENSE("GPL");
+MODULE_VERSION("0.1");
 module_init(acme_init);
 module_exit(acme_cleanup);
 
