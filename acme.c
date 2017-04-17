@@ -11,47 +11,34 @@
 #include <linux/device.h>	
 #include <linux/errno.h>	
 #include <asm/uaccess.h>	
-//#include <linux/module.h>
 
 MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
+MODULE_AUTHOR("Chad Coates");
+
+#define DEVCOUNT			1
+#define DEVNAME				"acme"
+#define SYSCALL_VAL		40
 
 struct acme_dev {
-	struct cdev cdev;								/* The cdev structure */
+	struct cdev cdev;				
 	int syscall_val;
 } *acme_devp;
 
-int acme_open(struct inode *inode, struct file *filp){
-	struct acme_dev *acme_devp;
-	acme_devp=container_of(inode->i_cdev,struct acme_dev, cdev);
-	filp->private_data=acme_devp;
-	return 0;
-}
-
-ssize_t acme_read(struct file *filp,char __user *buff,size_t count,loff_t *offp){
-	if(copy_to_user(buff,&acme_devp->syscall_val,count))return -EFAULT;
-	return count;
-}
-
-ssize_t acme_write(struct file *filp,const char __user *buff,size_t count,loff_t *offp){
-	if(copy_from_user(&acme_devp->syscall_val,buff,count))return -EFAULT;
-	return count;
-}
+ssize_t acme_read(struct file *,char __user *buff,size_t,loff_t *);
+ssize_t acme_write(struct file *,const char __user *buff,size_t,loff_t *);
 
 static struct file_operations acme_fops = {
 	.owner = THIS_MODULE,
-//	.open = acme_open,
-	.read = acme_read,						/* Read method */
-	.write = acme_write,					/* Write method */
+	.read = acme_read,		
+	.write = acme_write,
 };
 
-static dev_t acme_dev_number;		/* Allotted device number */
-struct class *acme_class;
-static int syscall_val=40;
-module_param(syscall_val,int,S_IRUGO);
+static dev_t acme_dev_number;
+static struct class *acme_class;
+static int syscall_val=SYSCALL_VAL;
 
-#define DEVCOUNT	1
-#define DEVNAME		"acme"
+module_param(syscall_val,int,S_IRUGO);
 
 int __init acme_init(void){
 	int err;
@@ -60,23 +47,22 @@ int __init acme_init(void){
 	
 	if(alloc_chrdev_region(&acme_dev_number,0,DEVCOUNT,DEVNAME) < 0) {
 		printk(KERN_DEBUG "Can't register device\n"); 
-		return -1;
+		return -ENODEV;
 	}
-
+	
 	acme_devp = kmalloc(sizeof(struct acme_dev), GFP_KERNEL);
 	if (!acme_devp) {
 		printk("Bad Kmalloc\n"); 
-		return 1;
+		return -ENOMEM;
 	}
-
+	
 	cdev_init(&acme_devp->cdev,&acme_fops);
 	acme_devp->syscall_val=syscall_val;
-	acme_devp->cdev.owner = THIS_MODULE;
-	acme_devp->cdev.ops = &acme_fops; //???????
+	
 	err=cdev_add(&acme_devp->cdev,acme_dev_number,1);
 	if(err){
 		printk(KERN_NOTICE "error %d adding acme device",err);
-		return 1;
+		return err;
 	}
 
 	device_create(acme_class,NULL,acme_dev_number,NULL,DEVNAME);
@@ -91,6 +77,17 @@ void __exit acme_cleanup(void){
 	kfree(acme_devp);
 	device_destroy(acme_class,acme_dev_number);
 	class_destroy(acme_class);
+	printk("ACME Driver Uninstalled.\n");
+}
+
+ssize_t acme_read(struct file *filp,char __user *buff,size_t count,loff_t *offp){
+	if(copy_to_user(buff,&acme_devp->syscall_val,count)) return -EFAULT;
+	return count;
+}
+
+ssize_t acme_write(struct file *filp,const char __user *buff,size_t count,loff_t *offp){
+	if(copy_from_user(&acme_devp->syscall_val,buff,count))return -EFAULT;
+	return count;
 }
 
 module_init(acme_init);
