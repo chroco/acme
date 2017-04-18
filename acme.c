@@ -81,14 +81,38 @@ void __exit acme_cleanup(void){
 	printk("ACME Driver Uninstalled.\n");
 }
 
-ssize_t acme_read(struct file *filp,char __user *buff,size_t count,loff_t *offp){
-	if(copy_to_user(buff,&acme_devp->syscall_val,count)) return -EFAULT;
-	return count;
+ssize_t acme_read(struct file *filp,char __user *buf,size_t len,loff_t *offset){
+	int ret;
+	if(*offset>=sizeof(int))return 0;
+	if(!buf){
+		ret = -EINVAL;
+		goto out;
+	}
+	if(copy_to_user(buf,&acme_devp->syscall_val,sizeof(int))){
+		ret = -EFAULT;
+		goto out;
+	}
+	ret=sizeof(int);
+	*offset += len;
+	
+out:
+	return ret;
 }
 
-ssize_t acme_write(struct file *filp,const char __user *buff,size_t count,loff_t *offp){
-	if(copy_from_user(&acme_devp->syscall_val,buff,count))return -EFAULT;
-	return count;
+ssize_t acme_write(struct file *filp,const char __user *buf,size_t len,loff_t *offset){
+	int ret;
+	if(!buf){
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if(copy_from_user(&acme_devp->syscall_val,buf,len)){
+		ret = -EFAULT;
+		goto out;
+	}
+	ret = len;
+out:
+	return ret;
 }
 
 MODULE_AUTHOR("Chad Coates");
